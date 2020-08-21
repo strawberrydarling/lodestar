@@ -333,37 +333,35 @@ describe("sync utils", function () {
   describe("checkBestPeer", function () {
     let networkStub: SinonStubbedInstance<INetwork>;
     let forkChoiceStub: SinonStubbedInstance<ILMDGHOST>;
+    let reps: ReputationStore;
     beforeEach(() => {
       networkStub = sinon.createStubInstance(Libp2pNetwork);
       forkChoiceStub = sinon.createStubInstance(ArrayDagLMDGHOST);
+      reps = new ReputationStore();
     });
     afterEach(() => {
       sinon.restore();
     });
-    it("should return false, no peer", function () {
-      expect(checkBestPeer(null, null, null, null)).to.be.false;
-    });
 
-    it("peer is disconnected", async function() {
+    it("peer is disconnected", async function () {
       const peer1 = await PeerId.create();
       networkStub.getPeers.returns([]);
-      expect(checkBestPeer(peer1, null, networkStub, null)).to.be.false;
-      expect(networkStub.getPeers.calledOnce).to.be.true;
-    });
-
-    it("peer is connected but no status", async function() {
-      const peer1 = await PeerId.create();
-      networkStub.getPeers.returns([peer1]);
-      const reps = new ReputationStore();
       expect(checkBestPeer(peer1, forkChoiceStub, networkStub, reps)).to.be.false;
       expect(networkStub.getPeers.calledOnce).to.be.true;
       expect(forkChoiceStub.headBlockSlot.calledOnce).to.be.false;
     });
 
-    it("peer head slot is not better than us", async function() {
+    it("peer is connected but no status", async function () {
       const peer1 = await PeerId.create();
       networkStub.getPeers.returns([peer1]);
-      const reps = new ReputationStore();
+      expect(checkBestPeer(peer1, forkChoiceStub, networkStub, reps)).to.be.false;
+      expect(networkStub.getPeers.calledOnce).to.be.true;
+      expect(forkChoiceStub.headBlockSlot.calledOnce).to.be.false;
+    });
+
+    it("peer head slot is not better than us", async function () {
+      const peer1 = await PeerId.create();
+      networkStub.getPeers.returns([peer1]);
       reps.getFromPeerId(peer1).latestStatus = {
         finalizedEpoch: 0,
         finalizedRoot: Buffer.alloc(0),
@@ -377,10 +375,9 @@ describe("sync utils", function () {
       expect(forkChoiceStub.headBlockSlot.calledOnce).to.be.true;
     });
 
-    it("peer is good for best peer", async function() {
+    it("peer is good for best peer", async function () {
       const peer1 = await PeerId.create();
       networkStub.getPeers.returns([peer1]);
-      const reps = new ReputationStore();
       reps.getFromPeerId(peer1).latestStatus = {
         finalizedEpoch: 0,
         finalizedRoot: Buffer.alloc(0),
@@ -394,7 +391,6 @@ describe("sync utils", function () {
       expect(forkChoiceStub.headBlockSlot.calledOnce).to.be.true;
     });
   });
-
 });
 
 function generateReputation(overiddes: Partial<IReputation>): IReputation {

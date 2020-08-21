@@ -18,6 +18,7 @@ import {IBeaconChain} from "../chain";
 import {MetadataController} from "./metadata";
 import {Discv5, Discv5Discovery, ENR} from "@chainsafe/discv5";
 import {IReputationStore} from "../sync/IReputation";
+import {MIN_NUM_PEERS_PER_SUBNET, MAX_NUM_PEERS_PER_SUBNET} from "./gossip/constants";
 
 interface ILibp2pModules {
   config: IBeaconConfig;
@@ -118,10 +119,10 @@ export class Libp2pNetwork extends (EventEmitter as {new (): NetworkEventEmitter
 
   public async searchSubnetPeers(subnet: string): Promise<void> {
     const peerIds = this.peerReputations.getPeerIdsBySubnet(subnet);
-    if (peerIds.length < 3) {
+    if (peerIds.length < MIN_NUM_PEERS_PER_SUBNET) {
       // If an insufficient number of current peers are subscribed to the topic,
       // the validator must discover new peers on this topic
-      this.logger.verbose(`Found only ${peerIds.length} for subnett ${subnet}, finding new peers to connect`);
+      this.logger.verbose(`Found only ${peerIds.length} for subnet ${subnet}, finding new peers to connect`);
       const count = await this.connectToNewPeersBySubnet(parseInt(subnet), peerIds);
       this.logger.verbose(`Connected to ${count} new peers for subnet ${subnet}`);
     }
@@ -145,11 +146,11 @@ export class Libp2pNetwork extends (EventEmitter as {new (): NetworkEventEmitter
         if (metadata.attnets[subnet]) {
           count++;
         }
+        this.peerReputations.getFromPeerId(peerId).latestMetadata = metadata;
       } catch (err) {
         this.logger.warn(`Cannot get metadata from ${peerId.toB58String()}: ${err.message}`);
       }
-      if (count < 10) {
-        // TODO: decide max peers per subnet to connect?
+      if (inPeerIds.length + count >= MAX_NUM_PEERS_PER_SUBNET) {
         break;
       }
     }

@@ -12,6 +12,8 @@ import {ILogger} from "@chainsafe/lodestar-utils/lib/logger";
 import {IBeaconSync} from "../sync";
 import {InteropSubnetsJoiningTask} from "./tasks/interopSubnetsJoiningTask";
 import {INetwork} from "../network";
+import {DiversifyPeersBySubnetTask} from "./tasks/diversifyPeersBySubnetTask";
+import {IReputationStore} from "../sync/IReputation";
 
 export interface ITasksModules {
   db: IBeaconDb;
@@ -19,6 +21,7 @@ export interface ITasksModules {
   chain: IBeaconChain;
   sync: IBeaconSync;
   network: INetwork;
+  reps: IReputationStore;
 }
 
 /**
@@ -32,8 +35,10 @@ export class TasksService implements IService {
   private readonly sync: IBeaconSync;
   private readonly network: INetwork;
   private readonly logger: ILogger;
+  private readonly reps: IReputationStore;
 
   private interopSubnetsTask: InteropSubnetsJoiningTask;
+  private diversifyPeersTask: DiversifyPeersBySubnetTask;
 
   public constructor(config: IBeaconConfig, modules: ITasksModules) {
     this.config = config;
@@ -42,9 +47,15 @@ export class TasksService implements IService {
     this.logger = modules.logger;
     this.sync = modules.sync;
     this.network = modules.network;
+    this.reps = modules.reps;
     this.interopSubnetsTask = new InteropSubnetsJoiningTask(this.config, {
       chain: this.chain,
       network: this.network,
+      logger: this.logger,
+    });
+    this.diversifyPeersTask = new DiversifyPeersBySubnetTask(this.config, {
+      network: this.network,
+      reps: this.reps,
       logger: this.logger,
     });
   }
@@ -53,6 +64,7 @@ export class TasksService implements IService {
     this.chain.forkChoice.on("prune", this.handleFinalizedCheckpointChores);
     this.network.gossip.on("gossip:start", this.handleGossipStart);
     this.network.gossip.on("gossip:stop", this.handleGossipStop);
+    await this.diversifyPeersTask.start();
   }
 
   public async stop(): Promise<void> {
@@ -60,6 +72,7 @@ export class TasksService implements IService {
     this.network.gossip.removeListener("gossip:start", this.handleGossipStart);
     this.network.gossip.removeListener("gossip:stop", this.handleGossipStop);
     await this.interopSubnetsTask.stop();
+    await this.diversifyPeersTask.stop();
   }
 
   private handleGossipStart = async (): Promise<void> => {

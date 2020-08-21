@@ -27,3 +27,6 @@ export const enum ExtendedValidatorResult {
   reject = "reject",
   ignore = "ignore",
 }
+
+export const MIN_NUM_PEERS_PER_SUBNET = 1;
+export const MAX_NUM_PEERS_PER_SUBNET = 2;
